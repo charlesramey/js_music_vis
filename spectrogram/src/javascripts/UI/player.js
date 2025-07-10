@@ -24,7 +24,9 @@ function Player() {
 	var analyser = context.createAnalyser();
 	//analyser.fftSize = 2048 * 2 * 2
 	// analyser.fftSize = (window.isMobile)? 2048 : 8192;
-	analyser.fftSize = (window.isMobile)?1024 : 2048;
+	// analyser.fftSize = (window.isMobile)?1024 : 2048;
+	analyser.fftSize = 16384; // Increased FFT size for better high-frequency resolution
+	analyser.minDecibels = -120; // Adjusted minDecibels for wider dynamic range
 	analyser.smoothingTimeConstant = 0;
 
 	// Create a mix.
