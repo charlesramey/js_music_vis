@@ -85,7 +85,7 @@ var spec3D = {
 
   attached: function() {
     console.log('spectrogram-3d attached');
-    Util.setLogScale(20, 20, 20000, 20000);
+    Util.setLogScale(20, 20, 96000, 96000);
     spec3D.onResize_();
     spec3D.init_();
 
@@ -186,6 +186,7 @@ var spec3D = {
     ctx.font = '14px Roboto';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
+    ctx.fillText('96,000 Hz -', x, canvas.height - spec3D.freqToY(96000));
     ctx.fillText('20,000 Hz -', x, canvas.height - spec3D.freqToY(20000));
     ctx.fillText('2,000 Hz -', x, canvas.height - spec3D.freqToY(2000));
     ctx.fillText('200 Hz -', x, canvas.height - spec3D.freqToY(200));
@@ -200,7 +201,7 @@ var spec3D = {
    * TODO(smus): Make this work properly with WebGL.
    */
   freqStart: 20,
-  freqEnd: 20000,
+  freqEnd: 96000,
   padding: 30,
   yToFreq: function(y) {
     var padding = spec3D.padding;
