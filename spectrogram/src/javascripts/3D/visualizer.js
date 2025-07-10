@@ -283,9 +283,11 @@ AnalyserView.prototype.analysisType = function() {
 	return this.analysisType;
 }
 
-AnalyserView.prototype.doFrequencyAnalysis = function(event) {
+// Modified to accept isPlaying state
+AnalyserView.prototype.doFrequencyAnalysis = function(isPlaying) {
 	var freqByteData = this.freqByteData;
 
+	// No change needed here based on isPlaying, getByteFrequencyData will reflect player state
 	switch(this.analysisType) {
 	case ANALYSISTYPE_FREQUENCY:
 		this.analyser.smoothingTimeConstant = 0.75;
@@ -304,10 +306,11 @@ AnalyserView.prototype.doFrequencyAnalysis = function(event) {
 		break;
 	}
 
-	this.drawGL();
+	this.drawGL(isPlaying); // Pass isPlaying to drawGL
 }
 
-AnalyserView.prototype.drawGL = function() {
+// Modified to accept isPlaying state
+AnalyserView.prototype.drawGL = function(isPlaying) {
 	var canvas = this.canvas;
 	var gl = this.gl;
 	var vbo = this.vbo;
@@ -330,16 +333,25 @@ AnalyserView.prototype.drawGL = function() {
 
 	gl.bindTexture(gl.TEXTURE_2D, texture);
 	gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-	if (this.analysisType != ANALYSISTYPE_SONOGRAM && this.analysisType != ANALYSISTYPE_3D_SONOGRAM) {
-		this.yoffset = 0;
-	}
-
-	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, this.yoffset, freqByteData.length, 1, gl.ALPHA, gl.UNSIGNED_BYTE, freqByteData);
 
 	if (this.analysisType == ANALYSISTYPE_SONOGRAM || this.analysisType == ANALYSISTYPE_3D_SONOGRAM) {
-		this.yoffset = (this.yoffset + 1) % TEXTURE_HEIGHT;
+		if (isPlaying) {
+			gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, this.yoffset, freqByteData.length, 1, gl.ALPHA, gl.UNSIGNED_BYTE, freqByteData);
+		}
+		// this.yoffset is the write cursor. Shader read cursor will also use this.yoffset.
+		// If paused, this.yoffset doesn't change, so the texture isn't updated AND the read position freezes.
+
+		if (isPlaying) {
+			this.yoffset = (this.yoffset + 1) % TEXTURE_HEIGHT;
+		}
+	} else { // For ANALYSISTYPE_FREQUENCY and ANALYSISTYPE_WAVEFORM
+		// These types always write to yoffset = 0 of the texture.
+		// They should update even if "paused" to show the flatline/silence.
+		// Here, this.yoffset is effectively 0 for these types as it's reset or not used for row index.
+		gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, freqByteData.length, 1, gl.ALPHA, gl.UNSIGNED_BYTE, freqByteData);
 	}
-	var yoffset = this.yoffset;
+
+	var yoffset = this.yoffset; // yoffset for shader uniform (texture read position)
 
 	// Point the frequency data texture at texture unit 0 (the default),
 	// which is what we're using since we haven't called activeTexture

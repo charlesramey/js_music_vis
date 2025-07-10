@@ -50,6 +50,9 @@ function Player() {
 	// this.bandpass = bandpass;
 	this.filterGain = filterGain;
 	this.analyser = analyser;
+	this.isPlaying = false;
+	this.startTime = 0;
+	this.pausedTime = 0;
 
 	this.buffers = {};
 
@@ -99,15 +102,88 @@ Player.prototype.playUserAudio = function(src) {
 
 Player.prototype.playHelper_ = function(src) {
 	var buffer = this.buffers[src];
-	this.source = this.createSource_(buffer, true);
-	this.source.start(0);
+	this.currentSrc = src; // Keep track of the current source key
+	this.source = this.createSource_(buffer, this.loop); // Always loop in this helper
+	// Start playing from the beginning or from pausedTime if resuming
+	var offset = this.pausedTime % buffer.duration;
+	this.source.start(0, offset);
+	this.startTime = this.context.currentTime - offset;
+	this.isPlaying = true;
 
 	if (!this.loop) {
+		// Clear existing timer if any
+		if (this.playTimer) {
+			clearTimeout(this.playTimer);
+		}
 		this.playTimer = setTimeout(function() {
 			this.stop();
-	}.bind(this), buffer.duration * 2000);
+		}.bind(this), (buffer.duration - offset) * 1000);
 	}
 };
+
+Player.prototype.pause = function() {
+	if (this.isPlaying && this.source) {
+		this.source.stop(0); // Stop playback
+		this.pausedTime = this.context.currentTime - this.startTime;
+		this.isPlaying = false;
+		if (this.playTimer) {
+			clearTimeout(this.playTimer);
+			this.playTimer = null;
+		}
+		// Note: this.source is now stopped and cannot be restarted.
+		// A new source will be created in resume() or playHelper_()
+	}
+};
+
+Player.prototype.resume = function() {
+	// Check if we have a source to resume and it's not currently playing.
+	// this.source might be null if stop() was called explicitly before pause.
+	// this.buffers[this.currentSrc] ensures we have the audio data.
+	if (!this.isPlaying && this.buffers[this.currentSrc]) {
+		// playHelper will use this.pausedTime to start from the correct offset
+		this.playHelper_(this.currentSrc);
+	}
+};
+
+Player.prototype.seek = function(offset) {
+	if (this.buffers[this.currentSrc]) { // Check if there's a current track to seek on
+		var buffer = this.buffers[this.currentSrc];
+		var wasPlaying = this.isPlaying;
+
+		// If playing, calculate current progress before stopping
+		if (this.isPlaying && this.source) {
+			this.pausedTime = this.context.currentTime - this.startTime;
+			this.source.stop(0); // Stop current playback
+			this.isPlaying = false;
+		}
+		// If not playing (i.e., paused or stopped), this.pausedTime should already be set.
+
+		// Calculate new pausedTime
+		var newTime = this.pausedTime + offset;
+		// Clamp newTime to the bounds of the buffer if not looping
+		// If looping, allow seeking beyond buffer duration, it will be handled by modulo in playHelper_
+		if (!this.loop) {
+			if (newTime < 0) newTime = 0;
+			if (newTime > buffer.duration) newTime = buffer.duration;
+		} else {
+            // Allow seeking to negative times when looping, it will wrap around.
+            // For example, if at 0s and seek -5s on a 10s loop, it should go to 5s.
+            if (newTime < 0) {
+                newTime = buffer.duration + (newTime % buffer.duration);
+            }
+        }
+		this.pausedTime = newTime;
+
+
+		if (wasPlaying) {
+			this.playHelper_(this.currentSrc); // Restart playback from the new position
+		}
+		// If it was paused, it remains paused but at the new seek position.
+		// If it was stopped, it remains stopped at the new seek position.
+		// The UI will need to be updated to reflect this.
+	}
+};
+
 
 Player.prototype.live = function() {
 	// The AudioContext may be in a suspended state prior to the page receiving a user
@@ -163,18 +239,26 @@ Player.prototype.setMicrophoneInput = function() {
 	// TODO: Implement me!
 };
 
-Player.prototype.stop = function() {
+Player.prototype.stop = function(isSeeking = false) { // Added isSeeking parameter
 	if (this.source) {
 		this.source.stop(0);
-		this.source = null;
-		clearTimeout(this.playTimer);
-		this.playTimer = null;
-
+		this.source = null; // Explicitly nullify to prevent reuse of stopped source
+		if (this.playTimer) {
+			clearTimeout(this.playTimer);
+			this.playTimer = null;
+		}
 	}
-	if (this.input) {
+	// Reset pausedTime only if not seeking, because seek needs the previous pausedTime.
+	// When a track ends naturally (not looping) or is explicitly stopped by user (not via pause),
+	// it should reset to the beginning.
+	if (!isSeeking) {
+		this.pausedTime = 0;
+	}
+	this.isPlaying = false;
+
+	if (this.input && !isSeeking) {
 		this.input.disconnect();
 		this.input = null;
-		return;
 	}
 };
 

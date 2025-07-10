@@ -34,6 +34,20 @@ body,html{
 	background-color: #141414;
 }
 
+// Icon styles for new controls
+.icon-play:before {
+	content: "\e009";
+}
+.icon-pause:before {
+	content: "\e00a";
+}
+.icon-rewind:before {
+	content: "\e00b";
+}
+.icon-fast-forward:before {
+	content: "\e00c";
+}
+
 #iosButton{
 	display:block;
 	position: fixed;
