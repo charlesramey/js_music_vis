@@ -83,13 +83,18 @@ $(function(){
 		var sp = spec3D;
 		sp.attached();
 		// --------------------------------------------
+		// Store references to the new control buttons
+		var $playPauseButton = $('#play-pause-button');
+		var $scrollBackwardButton = $('#scroll-backward-button');
+		var $scrollForwardButton = $('#scroll-forward-button');
+		// --------------------------------------------
 		$('.music-box__tool-tip').hide(0);
 		$('#loadingSound').hide(0);
 
-		$('.music-box__buttons__button').click(function(e){
+		$('.music-box__buttons__button').not($playPauseButton).not($scrollBackwardButton).not($scrollForwardButton).click(function(e){
 			sp.startRender();
 			
-			var wasPlaying = sp.isPlaying();
+			var wasPlaying = sp.player.isPlaying; // Use player's isPlaying property
 			sp.stop();
 			sp.drawingMode = false;
 			
@@ -120,14 +125,46 @@ $(function(){
 					sp.loopChanged( true );
 					$('#loadingMessage').text($(this).attr('data-name'));
 					sp.play($(this).attr('data-src'));
+					// Update play/pause button state
+					$playPauseButton.find('.icon').removeClass('icon-play').addClass('icon-pause');
 				}
 			}
-		})
+		});
+
+		// Event listener for the play/pause button
+		$playPauseButton.click(function() {
+			if (sp.player.isPlaying) {
+				sp.player.pause();
+				$(this).find('.icon').removeClass('icon-pause').addClass('icon-play');
+			} else {
+				// Check if a track has been loaded, otherwise this does nothing
+				if (sp.player.currentSrc) {
+					sp.player.resume();
+					$(this).find('.icon').removeClass('icon-play').addClass('icon-pause');
+				} else {
+					// Optionally, handle the case where no track is loaded.
+					// For example, play the first available track or show a message.
+					// For now, it does nothing if no track has been selected yet.
+					console.log("No track selected to play/resume.");
+				}
+			}
+		});
+
+		// Event listener for the scroll backward button
+		$scrollBackwardButton.click(function() {
+			sp.player.seek(-5); // Seek backward by 5 seconds
+		});
+
+		// Event listener for the scroll forward button
+		$scrollForwardButton.click(function() {
+			sp.player.seek(5); // Seek forward by 5 seconds
+		});
 		
 		var killSound = function(){
 			sp.startRender();
-			var wasPlaying = sp.isPlaying();
+			var wasPlaying = sp.player.isPlaying; // Use player's isPlaying property
 			sp.stop();
+			$playPauseButton.find('.icon').removeClass('icon-pause').addClass('icon-play'); // Reset play button
 			sp.drawingMode = false;
 			$('.music-box__buttons__button').removeClass('selected'); 
 		}

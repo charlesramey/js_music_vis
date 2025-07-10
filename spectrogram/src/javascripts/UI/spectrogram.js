@@ -94,10 +94,30 @@ var spec3D = {
 
   stop: function() {
     spec3D.player.stop();
+    // spec3D.analyserView.isNowPlaying = false; // Managed by passing isPlaying to draw loop
   },
 
   isPlaying: function() {
-    return !!this.player.source;
+    // return !!this.player.source;
+    return spec3D.player && spec3D.player.isPlaying;
+  },
+
+  pause: function() { // Added pause proxy
+    if (spec3D.player) {
+      spec3D.player.pause();
+    }
+  },
+
+  resume: function() { // Added resume proxy
+    if (spec3D.player) {
+      spec3D.player.resume();
+    }
+  },
+
+  seek: function(offset) { // Added seek proxy
+    if (spec3D.player) {
+      spec3D.player.seek(offset);
+    }
   },
 
   stopRender: function() {
@@ -166,11 +186,11 @@ var spec3D = {
 
   draw_: function() {
     if (!spec3D.isRendering) {
-      console.log('stopped draw_');
+      // console.log('stopped draw_'); // Console log removed for cleaner output
       return;
     }
-
-    spec3D.analyserView.doFrequencyAnalysis();
+    // Pass the isPlaying state to doFrequencyAnalysis
+    spec3D.analyserView.doFrequencyAnalysis(spec3D.isPlaying());
     requestAnimationFrame(spec3D.draw_.bind(spec3D));
   },
 
